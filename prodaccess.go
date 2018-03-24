@@ -7,7 +7,7 @@ import (
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	pb "github.com/dhtech/protos/auth"
+	pb "github.com/dhtech/proto/auth"
 )
 
 const (
