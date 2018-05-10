@@ -1,35 +1,61 @@
 package main
 
 import (
+	"flag"
+	"io/ioutil"
 	"log"
+	"net/http"
+	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	pb "github.com/dhtech/proto/auth"
 )
 
-const (
-	address     = "localhost:1214"
+var (
+	address   = flag.String("address", "auth.tech.dreamhack.se:1214", "Authentication server to use.")
+	cors      = flag.String("cors", "https://auth.tech.dreamhack.se", "Domain to reply to ident requests from.")
+	ident     = ""
+	sshpubkey = flag.String("sshpubkey", "$HOME/.ssh/id_ecdsa.pub", "SSH public key to request signed.")
 )
 
+func presentIdent(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "text/plain")
+	w.Header().Add("Access-Control-Allow-Origin", *cors)
+	w.Write([]byte(ident))
+}
+
 func main() {
+	// Create ident server, used to validate requests to protect from crosslinking.
+	ident = uuid.New().String()
+	http.HandleFunc("/", presentIdent)
+	go http.ListenAndServe(":1215", nil)
+
 	// Set up a connection to the server.
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
+	conn, err := grpc.Dial(*address, grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
 	defer conn.Close()
 	c := pb.NewAuthenticationServiceClient(conn)
 	
-	key := "ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEA4FxXEQsHdk6LknY1O6vjMZ880m7VN9QJVOAI+yoF08Ot70e3G0wbddKIuM53ZBNk2484M0A6bTK09e475XQegqkObMouZ/QNVlK/hyEMUg+lutwjCpDbQ3NFzvKwqk0w/LbLUmZp2PpKYpp5kmYzbDkAvGlKuIP2m2BuukRyrG6HTYmdFGc5VJDeeqkhdBcF25n6afPLVfsCK8O+PBcijBAHmuTRHWfrn1zhRglDeb9lRdX+9twLCt0ruveFGzRdR5Bv5y6yIKiAz3VqO9A1PZXX5sVNXDQw4EQmlrZ3o/nYXVuClrz4ULGvTzOujhDZnkIEGTjZV8P02He5gwSSmQ== rsa-key-20151019"
+	key, err := ioutil.ReadFile(os.ExpandEnv(*sshpubkey))
+	if err != nil {
+		log.Fatalf("could not read SSH public key: %v", err)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	
     stream, err := c.RequestUserCredential(ctx, &pb.UserCredentialRequest{
-		SshCertificateRequest: &pb.SshCertificateRequest{
-			PublicKey: key,
-		},
+			ClientValidation: &pb.ClientValidation{
+				Ident: ident,
+			},
+			SshCertificateRequest: &pb.SshCertificateRequest{
+				PublicKey: string(key),
+			},
 	})
 	
 	if err != nil {
@@ -44,7 +70,7 @@ func main() {
 		}
 		log.Printf("Response: %v", response)
 		if (response.RequiredAction != nil) {
-			openUrl("http://localhost" + response.RequiredAction.Url)
+			openUrl("http://auth.tech.dreamhack.se" + response.RequiredAction.Url)
 		} else {
 			break
 		}
