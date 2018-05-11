@@ -18,6 +18,7 @@ import (
 
 var (
 	grpcAddress  = flag.String("grpc", "auth-grpc.tech.dreamhack.se:443", "Authentication server to use.")
+	useTls       = flag.Bool("tls", true, "Whether or not to use TLS for the GRPC connection")
 	webUrl       = flag.String("web", "https://auth.tech.dreamhack.se", "Domain to reply to ident requests from")
 	ident        = ""
 	sshPubKey    = flag.String("sshpubkey", "$HOME/.ssh/id_ecdsa.pub", "SSH public key to request signed.")
@@ -30,15 +31,22 @@ func presentIdent(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	flag.Parse()
+
 	// Create ident server, used to validate requests to protect from crosslinking.
 	ident = uuid.New().String()
 	http.HandleFunc("/", presentIdent)
 	go http.ListenAndServe(":1215", nil)
 
+	d := grpc.WithInsecure()
+	if *useTls {
+		d = grpc.WithTransportCredentials(
+			credentials.NewTLS(&tls.Config{}),
+		)
+	}
+
 	// Set up a connection to the server.
-	conn, err := grpc.Dial(*grpcAddress, grpc.WithTransportCredentials(
-		credentials.NewTLS(&tls.Config{}),
-	))
+	conn, err := grpc.Dial(*grpcAddress, d)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
