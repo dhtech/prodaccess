@@ -22,6 +22,7 @@ var (
 	webUrl       = flag.String("web", "https://auth.tech.dreamhack.se", "Domain to reply to ident requests from")
 	ident        = ""
 	sshPubKey    = flag.String("sshpubkey", "$HOME/.ssh/id_ecdsa.pub", "SSH public key to request signed.")
+	sshCert      = flag.String("sshcert", "$HOME/.ssh/id_ecdsa-cert.pub", "SSH certificate to write.")
 )
 
 func presentIdent(w http.ResponseWriter, r *http.Request) {
@@ -89,5 +90,10 @@ func main() {
 		response, err = stream.Recv()
 	}
 
-	log.Printf("Got credentials: %v", response)
+	if response.SshCertificate != nil {
+		err := ioutil.WriteFile(os.ExpandEnv(*sshCert), []byte(response.SshCertificate.Certificate), 0644)
+		if err != nil {
+			log.Printf("failed to write SSH certificate: %v", err)
+		}
+	}
 }
