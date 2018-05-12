@@ -91,9 +91,11 @@ func main() {
 	}
 
 	if response.SshCertificate != nil {
-		err := ioutil.WriteFile(os.ExpandEnv(*sshCert), []byte(response.SshCertificate.Certificate), 0644)
+		cp := os.ExpandEnv(*sshCert)
+		err := ioutil.WriteFile(cp, []byte(response.SshCertificate.Certificate), 0644)
 		if err != nil {
 			log.Printf("failed to write SSH certificate: %v", err)
 		}
+		sshAgentAdd(cp)
 	}
 }
