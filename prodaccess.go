@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	grpcAddress  = flag.String("grpc", "auth-grpc.tech.dreamhack.se:443", "Authentication server to use.")
+	grpcAddress  = flag.String("grpc", "auth.tech.dreamhack.se:443", "Authentication server to use.")
 	useTls       = flag.Bool("tls", true, "Whether or not to use TLS for the GRPC connection")
 	webUrl       = flag.String("web", "https://auth.tech.dreamhack.se", "Domain to reply to ident requests from")
 	ident        = ""
