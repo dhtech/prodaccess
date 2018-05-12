@@ -61,7 +61,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	
-    stream, err := c.RequestUserCredential(ctx, &pb.UserCredentialRequest{
+		stream, err := c.RequestUserCredential(ctx, &pb.UserCredentialRequest{
 			ClientValidation: &pb.ClientValidation{
 				Ident: ident,
 			},
