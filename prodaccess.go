@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,13 +28,31 @@ func presentIdent(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(ident))
 }
 
+func quit(w http.ResponseWriter, r *http.Request) {
+	// This is used to kill any other prodaccess that is lingering, enforcing
+	// that only one is running.
+	log.Printf("Got termination request by /quit")
+	os.Exit(0)
+}
+
+func mustServeHttp() {
+	err := http.ListenAndServe(":1215", nil)
+	if err != nil {
+		log.Fatalf("could not serve backend http: %v", err)
+	}
+}
+
 func main() {
 	flag.Parse()
+
+	// Attempt to kill any already running prodaccess
+	http.Get("http://localhost:1215/quit")
 
 	// Create ident server, used to validate requests to protect from crosslinking.
 	ident = uuid.New().String()
 	http.HandleFunc("/", presentIdent)
-	go http.ListenAndServe(":1215", nil)
+	http.HandleFunc("/quit", quit)
+	go mustServeHttp()
 
 	d := grpc.WithInsecure()
 	if *useTls {
