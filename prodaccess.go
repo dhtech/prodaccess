@@ -76,6 +76,7 @@ func main() {
 			ClientValidation: &pb.ClientValidation{
 				Ident: ident,
 			},
+			VaultTokenRequest: &pb.VaultTokenRequest{},
 	}
 
 	sshPkey, err := sshGetPublicKey()
@@ -96,8 +97,8 @@ func main() {
 			log.Printf("Error: %v", err)
 			break
 		}
-		log.Printf("Response: %v", response)
 		if (response.RequiredAction != nil) {
+			log.Printf("Required action: %v", response.RequiredAction)
 			openUrl(*webUrl + response.RequiredAction.Url)
 		} else {
 			break
@@ -107,5 +108,9 @@ func main() {
 
 	if response.SshCertificate != nil {
 		sshLoadCertificate(response.SshCertificate.Certificate)
+	}
+
+	if response.VaultToken != nil {
+		saveVaultToken(response.VaultToken.Token)
 	}
 }

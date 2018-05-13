@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	sshPubKey    = flag.String("sshpubkey", "$HOME/.ssh/id_ecdsa.pub", "SSH public key to request signed.")
-	sshCert      = flag.String("sshcert", "$HOME/.ssh/id_ecdsa-cert.pub", "SSH certificate to write.")
+	sshPubKey       = flag.String("sshpubkey", "$HOME/.ssh/id_ecdsa.pub", "SSH public key to request signed.")
+	sshCert         = flag.String("sshcert", "$HOME/.ssh/id_ecdsa-cert.pub", "SSH certificate to write.")
+	vaultTokenPath  = flag.String("vault_token", "$HOME/.vault-token", "Path to Vault token to update.")
 )
 
 func sshLoadCertificate(c string) {
@@ -35,4 +36,12 @@ func sshGetPublicKey() (string, error) {
 		return "", err
 	}
 	return string(key), nil
+}
+
+func saveVaultToken(t string) {
+	tp := os.ExpandEnv(*vaultTokenPath)
+	err := ioutil.WriteFile(tp, []byte(t), 0400)
+	if err != nil {
+		log.Printf("failed to write Vault token: %v", err)
+	}
 }

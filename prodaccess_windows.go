@@ -5,6 +5,7 @@ import (
 )
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -17,6 +18,8 @@ import (
 )
 
 var (
+	vaultTokenPath  = flag.String("vault_token", "$USERPROFILE\\.vault-token", "Path to Vault token to update.")
+
 	MB_OK               = 0x00000000
 	MB_ICONHAND         = 0x00000010
 	MB_ICONEXCLAMATION  = 0x00000030
@@ -84,5 +87,13 @@ func sshLoadCertificate(c string) {
 	if err != nil {
 		showError(fmt.Sprintf("Failed to add key to Pageant: %v", err))
 		return
+	}
+}
+
+func saveVaultToken(t string) {
+	tp := os.ExpandEnv(*vaultTokenPath)
+	err := ioutil.WriteFile(tp, []byte(t), 0400)
+	if err != nil {
+		log.Printf("failed to write Vault token: %v", err)
 	}
 }
