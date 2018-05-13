@@ -79,6 +79,10 @@ func main() {
 			VaultTokenRequest: &pb.VaultTokenRequest{},
 	}
 
+	if hasKubectl() {
+		ucr.KubernetesCertificateRequest = &pb.KubernetesCertificateRequest{}
+	}
+
 	sshPkey, err := sshGetPublicKey()
 	if err == nil {
 		ucr.SshCertificateRequest = &pb.SshCertificateRequest{
@@ -112,5 +116,9 @@ func main() {
 
 	if response.VaultToken != nil {
 		saveVaultToken(response.VaultToken.Token)
+	}
+
+	if response.KubernetesCertificate != nil {
+		saveKubernetesCertificate(response.KubernetesCertificate.Certificate, response.KubernetesCertificate.PrivateKey)
 	}
 }
