@@ -99,3 +99,29 @@ func saveVaultToken(t string) {
 		log.Printf("failed to write Vault token: %v", err)
 	}
 }
+
+func hasKubectl() bool {
+	_, err := exec.LookPath("kubectl")
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func saveKubernetesCertificate(c string, k string) {
+	cf, _ := ioutil.TempFile("", "prodaccess-k8s")
+	kf, _ := ioutil.TempFile("", "prodaccess-k8s")
+	cf.Write([]byte(c))
+	kf.Write([]byte(k))
+	cp := cf.Name()
+	kp := kf.Name()
+	cf.Close()
+	kf.Close()
+
+	exec.Command("kubectl", "config", "set-credentials",
+		"dhtech", "--embed-certs=true",
+		fmt.Sprintf("--client-certificate=%s", cp),
+		fmt.Sprintf("--client-key=%s", kp)).Run()
+	os.Remove(cp)
+	os.Remove(kp)
+}
