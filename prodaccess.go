@@ -3,10 +3,8 @@ package main
 import (
 	"crypto/tls"
 	"flag"
-	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,8 +19,6 @@ var (
 	useTls       = flag.Bool("tls", true, "Whether or not to use TLS for the GRPC connection")
 	webUrl       = flag.String("web", "https://auth.tech.dreamhack.se", "Domain to reply to ident requests from")
 	ident        = ""
-	sshPubKey    = flag.String("sshpubkey", "$HOME/.ssh/id_ecdsa.pub", "SSH public key to request signed.")
-	sshCert      = flag.String("sshcert", "$HOME/.ssh/id_ecdsa-cert.pub", "SSH certificate to write.")
 )
 
 func presentIdent(w http.ResponseWriter, r *http.Request) {
@@ -53,28 +49,28 @@ func main() {
 	}
 	defer conn.Close()
 	c := pb.NewAuthenticationServiceClient(conn)
-	
-	key, err := ioutil.ReadFile(os.ExpandEnv(*sshPubKey))
-	if err != nil {
-		log.Fatalf("could not read SSH public key: %v", err)
-	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	
-		stream, err := c.RequestUserCredential(ctx, &pb.UserCredentialRequest{
+
+	ucr := &pb.UserCredentialRequest{
 			ClientValidation: &pb.ClientValidation{
 				Ident: ident,
 			},
-			SshCertificateRequest: &pb.SshCertificateRequest{
-				PublicKey: string(key),
-			},
-	})
-	
+	}
+
+	sshPkey, err := sshGetPublicKey()
+	if err == nil {
+		ucr.SshCertificateRequest = &pb.SshCertificateRequest{
+			PublicKey: sshPkey,
+		}
+	}
+
+	stream, err := c.RequestUserCredential(ctx, ucr)
 	if err != nil {
 		log.Fatalf("could not request credentials: %v", err)
 	}
-	
+
 	response, err := stream.Recv()
 	for {
 		if (err != nil) {
@@ -91,11 +87,6 @@ func main() {
 	}
 
 	if response.SshCertificate != nil {
-		cp := os.ExpandEnv(*sshCert)
-		err := ioutil.WriteFile(cp, []byte(response.SshCertificate.Certificate), 0644)
-		if err != nil {
-			log.Printf("failed to write SSH certificate: %v", err)
-		}
-		sshAgentAdd(cp)
+		sshLoadCertificate(response.SshCertificate.Certificate)
 	}
 }
