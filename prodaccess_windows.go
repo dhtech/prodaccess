@@ -7,6 +7,8 @@ import (
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
