@@ -54,6 +54,7 @@ var (
 const (
 	agentAddIdentity = 17
 	agentCopydataID  = 0x804e50ba
+	agentSuccess     = 6
 	wmCopydata       = 74
 )
 
@@ -231,6 +232,15 @@ func (p *PageantAgent) LoadHackCertificate(c string) error {
 	copy(msg[4:], req)
 	p.c.Write(msg)
 
-	// TODO(bluecmd): Let's assume everything always works :-)
+	// The reply is always (AFAIK) 1 byte status code, so ignore everything else.
+	resp := make([]byte, 5)
+	n, err := p.c.Read(resp)
+	if err != nil {
+		return err
+	}
+
+	if n != 5 || resp[4] != agentSuccess {
+		return fmt.Errorf("Pageant returned error %v", resp[4])
+	}
 	return nil
 }

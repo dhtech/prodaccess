@@ -64,10 +64,14 @@ func sshGetPublicKey() (string, error) {
 		if strings.Contains(key.Type(), "-cert-v01@openssh.com") {
 			continue
 		}
+		// Our hacked pageant only supports certificates of ECDSA for now
+		if !strings.Contains(key.Type(), "ecdsa-sha2-nistp") {
+			continue
+		}
 		return key.String(), nil
 	}
 
-	showWarning("Did not find any signable keys in your Pageant, will not request SSH certificate")
+	showWarning("Did not find any signable ECDSA keys in your Pageant, will not request SSH certificate")
 	return "", fmt.Errorf("no keys found")
 }
 
