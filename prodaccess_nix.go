@@ -70,4 +70,6 @@ func saveKubernetesCertificate(c string, k string) {
 		"dhtech", "--embed-certs=true",
 		fmt.Sprintf("--client-certificate=%s", cp),
 		fmt.Sprintf("--client-key=%s", kp)).Run()
+	os.Remove(cp)
+	os.Remove(kp)
 }
