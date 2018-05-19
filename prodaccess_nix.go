@@ -13,9 +13,10 @@ import (
 )
 
 var (
-	sshPubKey       = flag.String("sshpubkey", "$HOME/.ssh/id_ecdsa.pub", "SSH public key to request signed.")
-	sshCert         = flag.String("sshcert", "$HOME/.ssh/id_ecdsa-cert.pub", "SSH certificate to write.")
-	vaultTokenPath  = flag.String("vault_token", "$HOME/.vault-token", "Path to Vault token to update.")
+	sshPubKey       = flag.String("sshpubkey", "$HOME/.ssh/id_ecdsa.pub", "SSH public key to request signed")
+	sshCert         = flag.String("sshcert", "$HOME/.ssh/id_ecdsa-cert.pub", "SSH certificate to write")
+	vaultTokenPath  = flag.String("vault_token", "$HOME/.vault-token", "Path to Vault token to update")
+	vmwareCertPath  = flag.String("vmware_cert_path", "$HOME/.vmware-user.pfx", "Path to store VMware user certificate")
 )
 
 func sshLoadCertificate(c string) {
@@ -70,6 +71,22 @@ func saveKubernetesCertificate(c string, k string) {
 		"dhtech", "--embed-certs=true",
 		fmt.Sprintf("--client-certificate=%s", cp),
 		fmt.Sprintf("--client-key=%s", kp)).Run()
+	os.Remove(cp)
+	os.Remove(kp)
+}
+
+func saveVmwareCertificate(c string, k string) {
+	cf, _ := ioutil.TempFile("", "prodaccess-vmware")
+	kf, _ := ioutil.TempFile("", "prodaccess-vmware")
+	cf.Write([]byte(c))
+	kf.Write([]byte(k))
+	cp := cf.Name()
+	kp := kf.Name()
+	cf.Close()
+	kf.Close()
+
+	exec.Command("/usr/bin/env", "openssl", "pkcs12", "-export", "-password", "pass:",
+		"-in", cp, "-inkey", kp, "-out", os.ExpandEnv(*vmwareCertPath)).Run()
 	os.Remove(cp)
 	os.Remove(kp)
 }

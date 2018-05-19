@@ -1,11 +1,17 @@
 package main
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"flag"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,10 +22,12 @@ import (
 )
 
 var (
-	grpcAddress  = flag.String("grpc", "auth.tech.dreamhack.se:443", "Authentication server to use.")
-	useTls       = flag.Bool("tls", true, "Whether or not to use TLS for the GRPC connection")
-	webUrl       = flag.String("web", "https://auth.tech.dreamhack.se", "Domain to reply to ident requests from")
-	ident        = ""
+	grpcAddress    = flag.String("grpc", "auth.tech.dreamhack.se:443", "Authentication server to use.")
+	useTls         = flag.Bool("tls", true, "Whether or not to use TLS for the GRPC connection")
+	webUrl         = flag.String("web", "https://auth.tech.dreamhack.se", "Domain to reply to ident requests from")
+	requestVmware  = flag.Bool("vmware", false, "Whether or not to request a VMware certificate")
+	rsaKeySize     = flag.Int("rsa_key_size", 4096, "When generating RSA keys, use this key size")
+	ident          = ""
 )
 
 func presentIdent(w http.ResponseWriter, r *http.Request) {
@@ -40,6 +48,27 @@ func mustServeHttp() {
 	if err != nil {
 		log.Fatalf("could not serve backend http: %v", err)
 	}
+}
+
+func generateRsaCsr() (string, string, error) {
+	keyb, err := rsa.GenerateKey(rand.Reader, *rsaKeySize)
+	if err != nil {
+		return "", "", err
+	}
+	asnKey := x509.MarshalPKCS1PrivateKey(keyb)
+	keyPemBlob := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: asnKey})
+
+	subj := pkix.Name{
+		CommonName: "replaced-by-the-server",
+	}
+	tmpl := x509.CertificateRequest{
+		Subject: subj,
+		SignatureAlgorithm: x509.SHA256WithRSA,
+	}
+	csrb, _ := x509.CreateCertificateRequest(rand.Reader, &tmpl, keyb)
+	pemBlob := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrb})
+
+	return string(keyPemBlob), string(pemBlob), nil
 }
 
 func main() {
@@ -79,6 +108,19 @@ func main() {
 			VaultTokenRequest: &pb.VaultTokenRequest{},
 	}
 
+	vmwarePk := ""
+	if *requestVmware {
+		csr := ""
+		log.Printf("Generating VMware CSR ...")
+		vmwarePk, csr, err = generateRsaCsr()
+		if err != nil {
+			log.Fatalf("failed to generate VMware CSR: %v", err)
+		}
+		ucr.VmwareCertificateRequest = &pb.VmwareCertificateRequest{
+			Csr: csr,
+		}
+	}
+
 	if hasKubectl() {
 		ucr.KubernetesCertificateRequest = &pb.KubernetesCertificateRequest{}
 	}
@@ -90,6 +132,7 @@ func main() {
 		}
 	}
 
+	log.Printf("Sending credential request")
 	stream, err := c.RequestUserCredential(ctx, ucr)
 	if err != nil {
 		log.Fatalf("could not request credentials: %v", err)
@@ -120,5 +163,10 @@ func main() {
 
 	if response.KubernetesCertificate != nil {
 		saveKubernetesCertificate(response.KubernetesCertificate.Certificate, response.KubernetesCertificate.PrivateKey)
+	}
+
+	if response.VmwareCertificate != nil {
+		full := append([]string{response.VmwareCertificate.Certificate}, response.VmwareCertificate.CaChain...)
+		saveVmwareCertificate(strings.Join(full, "\n"), vmwarePk)
 	}
 }
