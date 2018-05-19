@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -48,6 +50,30 @@ func mustServeHttp() {
 	if err != nil {
 		log.Fatalf("could not serve backend http: %v", err)
 	}
+}
+
+func generateEcdsaCsr() (string, string, error) {
+	keyb, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+	if err != nil {
+		return "", "", err
+	}
+	asnKey, err := x509.MarshalECPrivateKey(keyb)
+	if err != nil {
+		return "", "", err
+	}
+	keyPemBlob := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: asnKey})
+
+	subj := pkix.Name{
+		CommonName: "replaced-by-the-server",
+	}
+	tmpl := x509.CertificateRequest{
+		Subject: subj,
+		SignatureAlgorithm: x509.ECDSAWithSHA256,
+	}
+	csrb, _ := x509.CreateCertificateRequest(rand.Reader, &tmpl, keyb)
+	pemBlob := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrb})
+
+	return string(keyPemBlob), string(pemBlob), nil
 }
 
 func generateRsaCsr() (string, string, error) {
@@ -112,7 +138,7 @@ func main() {
 	if *requestVmware {
 		csr := ""
 		log.Printf("Generating VMware CSR ...")
-		vmwarePk, csr, err = generateRsaCsr()
+		vmwarePk, csr, err = generateEcdsaCsr()
 		if err != nil {
 			log.Fatalf("failed to generate VMware CSR: %v", err)
 		}

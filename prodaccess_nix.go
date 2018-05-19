@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -85,8 +86,19 @@ func saveVmwareCertificate(c string, k string) {
 	cf.Close()
 	kf.Close()
 
-	exec.Command("/usr/bin/env", "openssl", "pkcs12", "-export", "-password", "pass:",
-		"-in", cp, "-inkey", kp, "-out", os.ExpandEnv(*vmwareCertPath)).Run()
+	cmd := exec.Command("/usr/bin/env", "openssl", "pkcs12", "-export", "-password", "pass:",
+		"-in", cp, "-inkey", kp, "-out", os.ExpandEnv(*vmwareCertPath))
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		log.Printf("Failed to emit VMware certificate: %v", err)
+		log.Printf("Standard output: %s", stdout.String())
+		log.Printf("Error output: %s", stderr.String())
+	}
 	os.Remove(cp)
 	os.Remove(kp)
 }
