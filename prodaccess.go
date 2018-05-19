@@ -28,6 +28,8 @@ var (
 	useTls         = flag.Bool("tls", true, "Whether or not to use TLS for the GRPC connection")
 	webUrl         = flag.String("web", "https://auth.tech.dreamhack.se", "Domain to reply to ident requests from")
 	requestVmware  = flag.Bool("vmware", false, "Whether or not to request a VMware certificate")
+	// TODO(bluecmd): This should be automatic
+	requestBrowser = flag.Bool("browser", false, "Whether or not to request a browser certificate")
 	rsaKeySize     = flag.Int("rsa_key_size", 4096, "When generating RSA keys, use this key size")
 	ident          = ""
 )
@@ -147,6 +149,19 @@ func main() {
 		}
 	}
 
+	browserPk := ""
+	if *requestBrowser {
+		csr := ""
+		log.Printf("Generating Browser CSR ...")
+		browserPk, csr, err = generateEcdsaCsr()
+		if err != nil {
+			log.Fatalf("failed to generate Browser CSR: %v", err)
+		}
+		ucr.BrowserCertificateRequest = &pb.BrowserCertificateRequest{
+			Csr: csr,
+		}
+	}
+
 	if hasKubectl() {
 		ucr.KubernetesCertificateRequest = &pb.KubernetesCertificateRequest{}
 	}
@@ -194,5 +209,10 @@ func main() {
 	if response.VmwareCertificate != nil {
 		full := append([]string{response.VmwareCertificate.Certificate}, response.VmwareCertificate.CaChain...)
 		saveVmwareCertificate(strings.Join(full, "\n"), vmwarePk)
+	}
+
+	if response.BrowserCertificate != nil {
+		full := append([]string{response.BrowserCertificate.Certificate}, response.BrowserCertificate.CaChain...)
+		saveBrowserCertificate(strings.Join(full, "\n"), browserPk)
 	}
 }

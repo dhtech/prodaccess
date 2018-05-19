@@ -17,7 +17,8 @@ var (
 	sshPubKey       = flag.String("sshpubkey", "$HOME/.ssh/id_ecdsa.pub", "SSH public key to request signed")
 	sshCert         = flag.String("sshcert", "$HOME/.ssh/id_ecdsa-cert.pub", "SSH certificate to write")
 	vaultTokenPath  = flag.String("vault_token", "$HOME/.vault-token", "Path to Vault token to update")
-	vmwareCertPath  = flag.String("vmware_cert_path", "$HOME/.vmware-user.pfx", "Path to store VMware user certificate")
+	vmwareCertPath  = flag.String("vmware_cert_path", "$HOME/vmware-user.pfx", "Path to store VMware user certificate")
+	browserCertPath = flag.String("browser_cert_path", "$HOME/browser-user.pfx", "Path to store Browswer user certificate")
 )
 
 func sshLoadCertificate(c string) {
@@ -86,8 +87,11 @@ func saveVmwareCertificate(c string, k string) {
 	cf.Close()
 	kf.Close()
 
+	fp := os.ExpandEnv(*vmwareCertPath)
+	os.Remove(fp)
+	os.OpenFile(fp, os.O_CREATE, 0600)
 	cmd := exec.Command("/usr/bin/env", "openssl", "pkcs12", "-export", "-password", "pass:",
-		"-in", cp, "-inkey", kp, "-out", os.ExpandEnv(*vmwareCertPath))
+		"-in", cp, "-inkey", kp, "-out", fp)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -96,6 +100,36 @@ func saveVmwareCertificate(c string, k string) {
 	err := cmd.Run()
 	if err != nil {
 		log.Printf("Failed to emit VMware certificate: %v", err)
+		log.Printf("Standard output: %s", stdout.String())
+		log.Printf("Error output: %s", stderr.String())
+	}
+	os.Remove(cp)
+	os.Remove(kp)
+}
+
+func saveBrowserCertificate(c string, k string) {
+	cf, _ := ioutil.TempFile("", "prodaccess-browser")
+	kf, _ := ioutil.TempFile("", "prodaccess-browser")
+	cf.Write([]byte(c))
+	kf.Write([]byte(k))
+	cp := cf.Name()
+	kp := kf.Name()
+	cf.Close()
+	kf.Close()
+
+	fp := os.ExpandEnv(*browserCertPath)
+	os.Remove(fp)
+	os.OpenFile(fp, os.O_CREATE, 0600)
+	cmd := exec.Command("/usr/bin/env", "openssl", "pkcs12", "-export", "-password", "pass:",
+		"-in", cp, "-inkey", kp, "-out", fp)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		log.Printf("Failed to emit Browser certificate: %v", err)
 		log.Printf("Standard output: %s", stdout.String())
 		log.Printf("Error output: %s", stderr.String())
 	}

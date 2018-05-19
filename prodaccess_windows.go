@@ -125,3 +125,11 @@ func saveKubernetesCertificate(c string, k string) {
 	os.Remove(cp)
 	os.Remove(kp)
 }
+
+func saveBrowserCertificate(c string, k string) {
+	log.Printf("saveBrowserCertificate not implemented")
+}
+
+func saveVmwareCertificate(c string, k string) {
+	log.Printf("saveVmwareCertificate not implemented")
+}
