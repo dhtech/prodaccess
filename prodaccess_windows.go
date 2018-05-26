@@ -1,8 +1,6 @@
 // +build windows
 
 package main
-import (
-)
 
 import (
 	"flag"
@@ -45,11 +43,6 @@ func showError(msg string) {
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(msg))),
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("Prodaccess error"))),
 		uintptr(MB_OK | MB_ICONHAND))
-}
-
-func openUrl(url string) {
-	rundll := filepath.Join(os.Getenv("SYSTEMROOT"), "system32", "rundll32.exe")
-	exec.Command(rundll, "url.dll,FileProtocolHandler", url).Run()
 }
 
 func sshGetPublicKey() (string, error) {

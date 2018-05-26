@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	url "github.com/dhtech/go-openurl"
 	"github.com/google/uuid"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -187,7 +188,7 @@ func main() {
 		}
 		if (response.RequiredAction != nil) {
 			log.Printf("Required action: %v", response.RequiredAction)
-			openUrl(*webUrl + response.RequiredAction.Url)
+			url.Open(*webUrl + response.RequiredAction.Url)
 		} else {
 			break
 		}
