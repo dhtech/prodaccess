@@ -21,7 +21,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/naming"
 	pb "github.com/dhtech/proto/auth"
 )
 
@@ -122,35 +121,10 @@ func main() {
 		)
 	}
 
-	// Discover the server
-	resolver, err := naming.NewDNSResolver()
+	conn, err := grpc.Dial("dns:///" + *grpcService, d)
 	if err != nil {
-		log.Fatalf("unable to create resolver: %v", err)
-	}
-
-	watcher, err := resolver.Resolve(*grpcService)
-	if err != nil {
-		log.Fatalf("unable to resolve: %v", err)
-	}
-
-	targets, err := watcher.Next()
-	if err != nil {
-		log.Fatalf("unable to enumerate watcher: %v", err)
-	}
-
-	// Set up a connection to the server.
-	var conn *grpc.ClientConn
-	for _, target := range targets {
-		var err error
-		conn, err = grpc.Dial(target.Addr, d)
-		if err != nil {
-			log.Printf("could not connect to %s: %v", target.Addr, err)
-			conn = nil
-		}
-		log.Printf("connected to backend %s", target.Addr)
-	}
-	if conn == nil {
-		log.Fatalf("no alive backends, cannot continue")
+		log.Printf("could not connect: %v", err)
+		conn = nil
 	}
 
 	defer conn.Close()
