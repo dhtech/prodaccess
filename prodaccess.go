@@ -21,11 +21,12 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/naming"
 	pb "github.com/dhtech/proto/auth"
 )
 
 var (
-	grpcAddress    = flag.String("grpc", "auth.tech.dreamhack.se:443", "Authentication server to use.")
+	grpcService    = flag.String("grpc", "auth.tech.dreamhack.se", "Authentication server to use.")
 	useTls         = flag.Bool("tls", true, "Whether or not to use TLS for the GRPC connection")
 	webUrl         = flag.String("web", "https://auth.tech.dreamhack.se", "Domain to reply to ident requests from")
 	requestVmware  = flag.Bool("vmware", false, "Whether or not to request a VMware certificate")
@@ -115,15 +116,43 @@ func main() {
 	d := grpc.WithInsecure()
 	if *useTls {
 		d = grpc.WithTransportCredentials(
-			credentials.NewTLS(&tls.Config{}),
+			credentials.NewTLS(&tls.Config{
+				ServerName: *grpcService,
+			}),
 		)
 	}
 
-	// Set up a connection to the server.
-	conn, err := grpc.Dial(*grpcAddress, d)
+	// Discover the server
+	resolver, err := naming.NewDNSResolver()
 	if err != nil {
-		log.Fatalf("did not connect: %v", err)
+		log.Fatalf("unable to create resolver: %v", err)
 	}
+
+	watcher, err := resolver.Resolve(*grpcService)
+	if err != nil {
+		log.Fatalf("unable to resolve: %v", err)
+	}
+
+	targets, err := watcher.Next()
+	if err != nil {
+		log.Fatalf("unable to enumerate watcher: %v", err)
+	}
+
+	// Set up a connection to the server.
+	var conn *grpc.ClientConn
+	for _, target := range targets {
+		var err error
+		conn, err = grpc.Dial(target.Addr, d)
+		if err != nil {
+			log.Printf("could not connect to %s: %v", target.Addr, err)
+			conn = nil
+		}
+		log.Printf("connected to backend %s", target.Addr)
+	}
+	if conn == nil {
+		log.Fatalf("no alive backends, cannot continue")
+	}
+
 	defer conn.Close()
 	c := pb.NewAuthenticationServiceClient(conn)
 
