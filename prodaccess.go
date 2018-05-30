@@ -25,7 +25,8 @@ import (
 )
 
 var (
-	grpcService    = flag.String("grpc", "auth.tech.dreamhack.se", "Authentication server to use.")
+	grpcService    = flag.String("grpc", "auth.tech.dreamhack.se:443", "Authentication server to use.")
+	tlsServerName  = flag.String("server_name", "auth.tech.dreamhack.se", "TLS server name to verify.")
 	useTls         = flag.Bool("tls", true, "Whether or not to use TLS for the GRPC connection")
 	webUrl         = flag.String("web", "https://auth.tech.dreamhack.se", "Domain to reply to ident requests from")
 	requestVmware  = flag.Bool("vmware", false, "Whether or not to request a VMware certificate")
@@ -116,12 +117,12 @@ func main() {
 	if *useTls {
 		d = grpc.WithTransportCredentials(
 			credentials.NewTLS(&tls.Config{
-				ServerName: *grpcService,
+				ServerName: *tlsServerName,
 			}),
 		)
 	}
 
-	conn, err := grpc.Dial("dns:///" + *grpcService, d)
+	conn, err := grpc.Dial(*grpcService, d)
 	if err != nil {
 		log.Printf("could not connect: %v", err)
 		conn = nil
