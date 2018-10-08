@@ -33,7 +33,7 @@ import (
 	"strings"
 	"sync"
 	. "syscall"
-	. "unsafe"
+	"unsafe"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
@@ -61,7 +61,7 @@ const (
 type copyData struct {
 	dwData uintptr
 	cbData uint32
-	lpData Pointer
+	lpData unsafe.Pointer
 }
 
 var (
@@ -118,7 +118,7 @@ func query(msg []byte) ([]byte, error) {
 	}
 	defer UnmapViewOfFile(ptr)
 
-	mmSlice := (*(*[MaxMessageLen]byte)(Pointer(ptr)))[:]
+	mmSlice := (*(*[MaxMessageLen]byte)(unsafe.Pointer(ptr)))[:]
 
 	copy(mmSlice, msg)
 
@@ -127,10 +127,10 @@ func query(msg []byte) ([]byte, error) {
 	cds := copyData{
 		dwData: agentCopydataID,
 		cbData: uint32(len(mapNameBytesZ)),
-		lpData: Pointer(&(mapNameBytesZ[0])),
+		lpData: unsafe.Pointer(&(mapNameBytesZ[0])),
 	}
 
-	resp, _, _ := winSendMessage(paWin, wmCopydata, 0, uintptr(Pointer(&cds)))
+	resp, _, _ := winSendMessage(paWin, wmCopydata, 0, uintptr(unsafe.Pointer(&cds)))
 
 	if resp == 0 {
 		return nil, ErrSendMessage
@@ -149,7 +149,7 @@ func query(msg []byte) ([]byte, error) {
 
 func pageantWindow() uintptr {
 	nameP, _ := UTF16PtrFromString("Pageant")
-	h, _, _ := winFindWindow(uintptr(Pointer(nameP)), uintptr(Pointer(nameP)))
+	h, _, _ := winFindWindow(uintptr(unsafe.Pointer(nameP)), uintptr(unsafe.Pointer(nameP)))
 	return h
 }
 
