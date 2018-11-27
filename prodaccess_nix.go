@@ -10,7 +10,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"os/user"
 	"strings"
 )
 
@@ -33,28 +32,23 @@ func sshLoadCertificate(c string) {
 	}
 
 	// Add cert authority to known_hosts
-	usr, err := user.Current()
+	path := os.ExpandEnv(*sshKnownHosts)
+	kh, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Printf("failed to get homedir: %v", err)
+		log.Printf("failed to read SSH known hosts: %v", err)
 	} else {
-		path := strings.Replace(*sshKnownHosts, "$HOME", usr.HomeDir, 1)
-		kh, err := ioutil.ReadFile(path)
-		if err != nil {
-			log.Printf("failed to read SSH known hosts: %v", err)
-		} else {
-			if !strings.Contains(string(kh), certAuthority) {
-				log.Printf("adding server identity to SSH known hosts")
-				f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0600)
-				if err != nil {
-					log.Printf("failed to open SSH known hosts file for writing: %v", err)
-				}
-				defer f.Close()
-				if _, err = f.WriteString(certAuthority); err != nil {
-					log.Printf("failed to write to SSH known hosts file: %v", err)
-				}
-			} else {
-				log.Printf("skipping SSH known hosts, already exists")
+		if !strings.Contains(string(kh), certAuthority) {
+			log.Printf("adding server identity to SSH known hosts")
+			f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0600)
+			if err != nil {
+				log.Printf("failed to open SSH known hosts file for writing: %v", err)
 			}
+			defer f.Close()
+			if _, err = f.WriteString(certAuthority); err != nil {
+				log.Printf("failed to write to SSH known hosts file: %v", err)
+			}
+		} else {
+			log.Printf("skipping SSH known hosts, already exists")
 		}
 	}
 
